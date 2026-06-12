@@ -69,22 +69,43 @@ try:
     # 4. แสดงกราฟหลัก Stacked Bar Chart
     st.subheader("📈 ปริมาณ Load แยกตามช่วงเวลา (Periodic Inform) และรุ่นอุปกรณ์")
     
+    # จัดกลุ่มข้อมูลสำหรับวาดกราฟแท่ง
     chart_data = filtered_df.groupby(['PeriodicInform', 'ProductClass'])['CpeCount'].sum().reset_index()
+    
+    # คำนวณยอดรวมของแต่ละแกน X (เพื่อเอาไปทำ Label รวมด้านบนแท่ง)
+    total_per_interval = chart_data.groupby('PeriodicInform')['CpeCount'].sum().reset_index()
     
     fig = px.bar(
         chart_data, 
         x='PeriodicInform', 
         y='CpeCount', 
         color='ProductClass',
-        text='CpeCount', # เพิ่ม Label ตัวเลขเข้าไปในกราฟ
         title="จำนวนอุปกรณ์ CPE แยกตามรอบเวลาส่งสัญญาณ",
         labels={'PeriodicInform': 'เวลา Periodic Inform', 'CpeCount': 'จำนวน CPE'},
         template="plotly_white"
     )
     
-    # ปรับแต่งให้ Label มีลูกน้ำคั่นหลักพัน และจัดให้อยู่ด้านในแท่งกราฟ
-    fig.update_traces(texttemplate='%{text:,}', textposition='inside')
+    # ตั้งค่าให้เป็นกราฟแท่งซ้อนกัน และเรียงจากแท่งสูงไปต่ำ
     fig.update_layout(barmode='stack', xaxis={'categoryorder':'total descending'})
+
+    # เพิ่ม Label สรุปยอดรวมไว้บนยอดสุดของแต่ละแท่ง
+    fig.add_scatter(
+        x=total_per_interval['PeriodicInform'], 
+        y=total_per_interval['CpeCount'],
+        mode='text',
+        text=total_per_interval['CpeCount'],
+        textposition='top center',
+        texttemplate='<b>%{text:,}</b>', # จัด Format ใส่ลูกน้ำให้ตัวเลข
+        textfont=dict(size=14, color='black'),
+        showlegend=False,
+        hoverinfo='skip'
+    )
+    
+    # ขยายพื้นที่ขอบบนของกราฟอีก 10% เพื่อไม่ให้ตัวเลข Label ขาดหรือโดนบัง
+    if not total_per_interval.empty:
+        max_y = total_per_interval['CpeCount'].max()
+        fig.update_layout(yaxis=dict(range=[0, max_y * 1.1]))
+
     st.plotly_chart(fig, use_container_width=True)
 
     # 5. แสดงตารางสรุปด้านล่าง
