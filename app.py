@@ -88,15 +88,15 @@ try:
     # ตั้งค่าให้เป็นกราฟแท่งซ้อนกัน และเรียงจากแท่งสูงไปต่ำ
     fig.update_layout(barmode='stack', xaxis={'categoryorder':'total descending'})
 
-    # เพิ่ม Label สรุปยอดรวมไว้บนยอดสุดของแต่ละแท่ง
+    # เพิ่ม Label สรุปยอดรวมไว้บนยอดสุดของแต่ละแท่ง (ปลดล็อกสีออกแล้ว)
     fig.add_scatter(
         x=total_per_interval['PeriodicInform'], 
         y=total_per_interval['CpeCount'],
         mode='text',
         text=total_per_interval['CpeCount'],
         textposition='top center',
-        texttemplate='<b>%{text:,}</b>', # จัด Format ใส่ลูกน้ำให้ตัวเลข
-        textfont=dict(size=14, color='black'),
+        texttemplate='<b>%{text:,}</b>',
+        textfont=dict(size=14), # เอา color='black' ออก ปล่อยให้ Streamlit จัดการสีให้เข้ากับ Theme อัตโนมัติ
         showlegend=False,
         hoverinfo='skip'
     )
@@ -106,7 +106,8 @@ try:
         max_y = total_per_interval['CpeCount'].max()
         fig.update_layout(yaxis=dict(range=[0, max_y * 1.1]))
 
-    st.plotly_chart(fig, use_container_width=True)
+    # ส่ง theme="streamlit" เข้าไปเพื่อให้กราฟปรับสีตาม Dark/Light Mode ของหน้าเว็บ
+    st.plotly_chart(fig, theme="streamlit", use_container_width=True)
 
     # 5. แสดงตารางสรุปด้านล่าง
     st.subheader("📋 ตารางสรุปอันดับปริมาณรุ่นอุปกรณ์")
