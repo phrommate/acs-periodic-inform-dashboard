@@ -25,7 +25,10 @@ def load_data():
     # คลีนข้อมูลตัวเลข
     df['CpeCount'] = pd.to_numeric(df['CpeCount'], errors='coerce').fillna(0)
     
-    # แก้ไข Error: คลีนข้อมูลและบังคับให้เป็น String (ตัวอักษร) ทั้งหมดก่อนนำไปเรียงลำดับ
+    # กรองข้อมูล: เอาเฉพาะแถวที่มีจำนวน CPE มากกว่า 0 เพื่อไม่ให้แสดงใน Dashboard
+    df = df[df['CpeCount'] > 0]
+    
+    # คลีนข้อมูลและบังคับให้เป็น String (ตัวอักษร) ทั้งหมดก่อนนำไปเรียงลำดับ
     df['PeriodicInform'] = df['PeriodicInform'].fillna("ไม่ระบุ").astype(str)
     df['ProductClass'] = df['ProductClass'].fillna("ไม่ระบุ").astype(str)
     
@@ -35,7 +38,6 @@ try:
     df = load_data()
 
     # 2. ส่วนควบคุม (Global Filter)
-    # เมื่อข้อมูลเป็น String ทั้งหมดแล้ว จะไม่เกิด Error เวลาเรียงลำดับ (sort)
     product_list = ["ทั้งหมด"] + sorted(df['ProductClass'].unique().tolist())
     selected_product = st.selectbox("🔍 เลือกรุ่นอุปกรณ์ (ProductClass - Column B):", product_list)
 
