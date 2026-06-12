@@ -8,8 +8,8 @@ st.set_page_config(page_title="ACS CPE Load Dashboard", layout="wide")
 st.title("📊 ระบบวิเคราะห์ข้อมูล Periodic Inform & CPE Load")
 st.markdown("---")
 
-# 1. ฟังก์ชันดึงข้อมูลจาก Google Sheets (แปลงลิงก์เป็น CSV Export)
-@st.cache_data(ttl=600)  # ดึงข้อมูลใหม่ทุกๆ 10 นาที
+# 1. ฟังก์ชันดึงข้อมูลจาก Google Sheets
+@st.cache_data(ttl=600) 
 def load_data():
     sheet_id = "1J_bihc7QJiD_ZHa1Xv8P7ROld0ZnNRv8-ubqV8L_kR8"
     gid = "827997903"
@@ -17,24 +17,25 @@ def load_data():
     
     df = pd.read_csv(url)
     
-    # กำหนดหัวคอลัมน์ให้ตรงกับโจทย์ของคุณ (ปรับชื่อให้ตรงกับหน้างานจริงหากจำเป็น)
-    # สมมติ Column B = 'ProductClass', Column Q = 'PeriodicInform', Column R = 'CpeCount'
-    # โค้ดนี้ใช้การระบุตำแหน่งคอลัมน์จากตำแหน่ง Index (0-based) เผื่อชื่อหัวแถวเปลี่ยน
+    # เปลี่ยนชื่อคอลัมน์ตามตำแหน่ง Index ให้ตรงกับข้อมูลของคุณ
     df.columns.values[1] = 'ProductClass'    # Column B
     df.columns.values[16] = 'PeriodicInform' # Column Q
     df.columns.values[17] = 'CpeCount'       # Column R
     
     # คลีนข้อมูลตัวเลข
     df['CpeCount'] = pd.to_numeric(df['CpeCount'], errors='coerce').fillna(0)
-    df['PeriodicInform'] = df['PeriodicInform'].astype(str)
-    df['ProductClass'] = df['ProductClass'].astype(str)
+    
+    # แก้ไข Error: คลีนข้อมูลและบังคับให้เป็น String (ตัวอักษร) ทั้งหมดก่อนนำไปเรียงลำดับ
+    df['PeriodicInform'] = df['PeriodicInform'].fillna("ไม่ระบุ").astype(str)
+    df['ProductClass'] = df['ProductClass'].fillna("ไม่ระบุ").astype(str)
     
     return df
 
 try:
     df = load_data()
 
-    # 2. ส่วนควบคุม (Global Filter ด้านซ้ายหรือด้านบน)
+    # 2. ส่วนควบคุม (Global Filter)
+    # เมื่อข้อมูลเป็น String ทั้งหมดแล้ว จะไม่เกิด Error เวลาเรียงลำดับ (sort)
     product_list = ["ทั้งหมด"] + sorted(df['ProductClass'].unique().tolist())
     selected_product = st.selectbox("🔍 เลือกรุ่นอุปกรณ์ (ProductClass - Column B):", product_list)
 
@@ -66,7 +67,6 @@ try:
     # 4. แสดงกราฟหลัก Stacked Bar Chart
     st.subheader("📈 ปริมาณ Load แยกตามช่วงเวลา (Periodic Inform) และรุ่นอุปกรณ์")
     
-    # จัดกลุ่มเพื่อวาดกราฟ
     chart_data = filtered_df.groupby(['PeriodicInform', 'ProductClass'])['CpeCount'].sum().reset_index()
     
     fig = px.bar(
@@ -75,18 +75,17 @@ try:
         y='CpeCount', 
         color='ProductClass',
         title="จำนวนอุปกรณ์ CPE แยกตามรอบเวลาส่งสัญญาณ",
-        labels={'PeriodicInform': 'เวลา Periodic Inform (Column Q)', 'CpeCount': 'จำนวน CPE Device (Column R)'},
+        labels={'PeriodicInform': 'เวลา Periodic Inform', 'CpeCount': 'จำนวน CPE'},
         template="plotly_white"
     )
     fig.update_layout(barmode='stack', xaxis={'categoryorder':'total descending'})
     st.plotly_chart(fig, use_container_width=True)
 
     # 5. แสดงตารางสรุปด้านล่าง
-    st.subheader("📋 ตารางสรุปอันดับปริมาณรุ่นอุปกรณ์ (Top ProductClass)")
+    st.subheader("📋 ตารางสรุปอันดับปริมาณรุ่นอุปกรณ์")
     summary_table = filtered_df.groupby('ProductClass')['CpeCount'].sum().reset_index()
     summary_table = summary_table.sort_values(by='CpeCount', ascending=False).reset_index(drop=True)
     st.dataframe(summary_table, use_container_width=True)
 
 except Exception as e:
     st.error(f"เกิดข้อผิดพลาดในการดึงข้อมูลหรือประมวลผล: {e}")
-    st.info("โปรดตรวจสอบสิทธิ์การเข้าถึงลิงก์ Google Sheets ว่าเปิดเป็น 'ทุกคนที่มีลิงก์อ่านได้' (Public/Anyone with link) แล้วหรือยัง")
