@@ -37,20 +37,29 @@ def load_data():
 try:
     df = load_data()
 
-    # 2. ส่วนควบคุม (Global Filter)
-    product_list = ["ทั้งหมด"] + sorted(df['ProductClass'].unique().tolist())
-    selected_product = st.selectbox("🔍 เลือกรุ่นอุปกรณ์ (ProductClass - Column B):", product_list)
+    # 2. ส่วนควบคุม (Global Filters) จัดวางแบบ 2 คอลัมน์ซ้ายขวา
+    col_filter1, col_filter2 = st.columns(2)
+    
+    with col_filter1:
+        product_list = ["ทั้งหมด"] + sorted(df['ProductClass'].unique().tolist())
+        selected_product = st.selectbox("🔍 เลือกรุ่นอุปกรณ์ (ProductClass):", product_list)
 
-    # กรองข้อมูลตามที่เลือก
+    with col_filter2:
+        time_list = ["ทั้งหมด"] + sorted(df['PeriodicInform'].unique().tolist())
+        selected_time = st.selectbox("⏱️ เลือกเวลาส่งสัญญาณ (Periodic Inform):", time_list)
+
+    # กรองข้อมูลตามที่เลือกทั้ง 2 เงื่อนไข
+    filtered_df = df.copy()
     if selected_product != "ทั้งหมด":
-        filtered_df = df[df['ProductClass'] == selected_product]
-    else:
-        filtered_df = df
+        filtered_df = filtered_df[filtered_df['ProductClass'] == selected_product]
+    
+    if selected_time != "ทั้งหมด":
+        filtered_df = filtered_df[filtered_df['PeriodicInform'] == selected_time]
 
     # 3. คำนวณสรุปค่า KPIs
     total_cpe = int(filtered_df['CpeCount'].sum())
     
-    # หาช่วงเวลาที่ Peak ที่สุด
+    # หาช่วงเวลาที่ Peak ที่สุด (กรณีที่ไม่ได้ Filter เวลาเจาะจง)
     peak_group = filtered_df.groupby('PeriodicInform')['CpeCount'].sum()
     if not peak_group.empty:
         peak_interval = peak_group.idxmax()
@@ -75,45 +84,49 @@ try:
     # คำนวณยอดรวมของแต่ละแกน X (เพื่อเอาไปทำ Label รวมด้านบนแท่ง)
     total_per_interval = chart_data.groupby('PeriodicInform')['CpeCount'].sum().reset_index()
     
-    fig = px.bar(
-        chart_data, 
-        x='PeriodicInform', 
-        y='CpeCount', 
-        color='ProductClass',
-        title="จำนวนอุปกรณ์ CPE แยกตามรอบเวลาส่งสัญญาณ",
-        labels={'PeriodicInform': 'เวลา Periodic Inform', 'CpeCount': 'จำนวน CPE'},
-        template="plotly_white"
-    )
-    
-    # ตั้งค่าให้เป็นกราฟแท่งซ้อนกัน และเรียงจากแท่งสูงไปต่ำ
-    fig.update_layout(barmode='stack', xaxis={'categoryorder':'total descending'})
+    # วาดกราฟต่อเมื่อมีข้อมูลหลังจากการ Filter
+    if not chart_data.empty:
+        fig = px.bar(
+            chart_data, 
+            x='PeriodicInform', 
+            y='CpeCount', 
+            color='ProductClass',
+            title="จำนวนอุปกรณ์ CPE แยกตามรอบเวลาส่งสัญญาณ",
+            labels={'PeriodicInform': 'เวลา Periodic Inform', 'CpeCount': 'จำนวน CPE'},
+            template="plotly_white"
+        )
+        
+        # ตั้งค่าให้เป็นกราฟแท่งซ้อนกัน และเรียงจากแท่งสูงไปต่ำ
+        fig.update_layout(barmode='stack', xaxis={'categoryorder':'total descending'})
 
-    # เพิ่ม Label สรุปยอดรวมไว้บนยอดสุดของแต่ละแท่ง (ปลดล็อกสีออกแล้ว)
-    fig.add_scatter(
-        x=total_per_interval['PeriodicInform'], 
-        y=total_per_interval['CpeCount'],
-        mode='text',
-        text=total_per_interval['CpeCount'],
-        textposition='top center',
-        texttemplate='<b>%{text:,}</b>',
-        textfont=dict(size=14), # เอา color='black' ออก ปล่อยให้ Streamlit จัดการสีให้เข้ากับ Theme อัตโนมัติ
-        showlegend=False,
-        hoverinfo='skip'
-    )
-    
-    # ขยายพื้นที่ขอบบนของกราฟอีก 10% เพื่อไม่ให้ตัวเลข Label ขาดหรือโดนบัง
-    if not total_per_interval.empty:
+        # เพิ่ม Label สรุปยอดรวมไว้บนยอดสุดของแต่ละแท่ง (รองรับ Dark Mode)
+        fig.add_scatter(
+            x=total_per_interval['PeriodicInform'], 
+            y=total_per_interval['CpeCount'],
+            mode='text',
+            text=total_per_interval['CpeCount'],
+            textposition='top center',
+            texttemplate='<b>%{text:,}</b>',
+            textfont=dict(size=14), 
+            showlegend=False,
+            hoverinfo='skip'
+        )
+        
+        # ขยายพื้นที่ขอบบนของกราฟอีก 10% เพื่อไม่ให้ตัวเลข Label ขาดหรือโดนบัง
         max_y = total_per_interval['CpeCount'].max()
         fig.update_layout(yaxis=dict(range=[0, max_y * 1.1]))
 
-    # ส่ง theme="streamlit" เข้าไปเพื่อให้กราฟปรับสีตาม Dark/Light Mode ของหน้าเว็บ
-    st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+        # ส่ง theme="streamlit" เข้าไปเพื่อให้กราฟปรับสีตาม Dark/Light Mode ของหน้าเว็บ
+        st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+    else:
+        st.info("ไม่พบข้อมูลที่ตรงกับเงื่อนไขการกรองที่คุณเลือก")
 
     # 5. แสดงตารางสรุปด้านล่าง
     st.subheader("📋 ตารางสรุปอันดับปริมาณรุ่นอุปกรณ์")
-    summary_table = filtered_df.groupby('ProductClass')['CpeCount'].sum().reset_index()
-    summary_table = summary_table.sort_values(by='CpeCount', ascending=False).reset_index(drop=True)
-    st.dataframe(summary_table, use_container_width=True)
+    if not filtered_df.empty:
+        summary_table = filtered_df.groupby('ProductClass')['CpeCount'].sum().reset_index()
+        summary_table = summary_table.sort_values(by='CpeCount', ascending=False).reset_index(drop=True)
+        st.dataframe(summary_table, use_container_width=True)
 
 except Exception as e:
     st.error(f"เกิดข้อผิดพลาดในการดึงข้อมูลหรือประมวลผล: {e}")
