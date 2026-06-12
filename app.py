@@ -17,7 +17,7 @@ def load_data():
     
     df = pd.read_csv(url)
     
-    # เปลี่ยนชื่อคอลัมน์ตามตำแหน่ง Index ให้ตรงกับข้อมูลของคุณ
+    # เปลี่ยนชื่อคอลัมน์ตามตำแหน่ง Index ให้ตรงกับข้อมูล
     df.columns.values[1] = 'ProductClass'    # Column B
     df.columns.values[16] = 'PeriodicInform' # Column Q
     df.columns.values[17] = 'CpeCount'       # Column R
@@ -25,7 +25,7 @@ def load_data():
     # คลีนข้อมูลตัวเลข
     df['CpeCount'] = pd.to_numeric(df['CpeCount'], errors='coerce').fillna(0)
     
-    # กรองข้อมูล: เอาเฉพาะแถวที่มีจำนวน CPE มากกว่า 0 เพื่อไม่ให้แสดงใน Dashboard
+    # กรองข้อมูล: เอาเฉพาะแถวที่มีจำนวน CPE มากกว่า 0
     df = df[df['CpeCount'] > 0]
     
     # คลีนข้อมูลและบังคับให้เป็น String (ตัวอักษร) ทั้งหมดก่อนนำไปเรียงลำดับ
@@ -76,10 +76,14 @@ try:
         x='PeriodicInform', 
         y='CpeCount', 
         color='ProductClass',
+        text='CpeCount', # เพิ่ม Label ตัวเลขเข้าไปในกราฟ
         title="จำนวนอุปกรณ์ CPE แยกตามรอบเวลาส่งสัญญาณ",
         labels={'PeriodicInform': 'เวลา Periodic Inform', 'CpeCount': 'จำนวน CPE'},
         template="plotly_white"
     )
+    
+    # ปรับแต่งให้ Label มีลูกน้ำคั่นหลักพัน และจัดให้อยู่ด้านในแท่งกราฟ
+    fig.update_traces(texttemplate='%{text:,}', textposition='inside')
     fig.update_layout(barmode='stack', xaxis={'categoryorder':'total descending'})
     st.plotly_chart(fig, use_container_width=True)
 
